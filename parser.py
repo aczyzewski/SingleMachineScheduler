@@ -1,6 +1,6 @@
 import sys
 from math import floor
-
+from statistics import median
 # processing times p(i) 
 # earliness a(i)  
 # tardiness b(i)
@@ -117,8 +117,6 @@ class Solver():
         # Structure: (ID, P, A, B)
         earliness_group = list(filter(lambda x: x[2] < x[3], tasks))
         total_time_of_earliness_group = sum(task[1] for task in earliness_group) 
-        #equal_group = sorted(list(filter(lambda x: x[2] == x[3], tasks), key=lambda x: x[2])
-        #print(len(equal_group))
 
         total_time_of_earliness_group = sum(task[1] for task in earliness_group)    
         beta_coef = max(0, total_time_of_earliness_group - self.deadline) / total_time_of_earliness_group
@@ -128,18 +126,21 @@ class Solver():
 
         while(len(earliness_group)):
             task = earliness_group.pop()
+            next_time_point = current_time_point + task[1]
+
+            if next_time_point > self.deadline:
+                earliness_group.append(task)
+                break
+
             self.results.append([task[0], current_time_point])
             current_time_point += task[1]
-
-            if current_time_point >= self.deadline:
-                break
 
         tarliness_group = sorted(list(filter(lambda x: x[2] >= x[3], tasks)) + earliness_group, key=lambda x: x[3]/x[1])
         while(len(tarliness_group)):
             task = tarliness_group.pop()
             self.results.append([task[0], current_time_point])
             current_time_point += task[1]
-
+                    
     def solve_beta_equals_as_common_set(self):  
         self.results = []
         tasks = self.instance.zipped_tasks()
@@ -182,6 +183,233 @@ class Solver():
             self.results.append([task[0], current_time_point])
             current_time_point += task[1]
 
+    def solve_custtom_h1(self):
+
+        self.results = []
+        tasks = self.instance.zipped_tasks()
+        earliness_group, tardiness_group = [], []
+        earliness_w_sum, tardiness_w_sum = 0, 0
+        
+        # Structure: (ID, P, A, B)
+        for task in tasks:
+            if earliness_w_sum < tardiness_w_sum + task[3]:
+                earliness_group.append(task)
+                earliness_w_sum += task[2]
+            else:
+                tardiness_group.append(task)
+                tardiness_w_sum += task[3]
+
+        total_time_of_earliness_group = sum(task[1] for task in earliness_group)     
+        beta_coef = max(0, total_time_of_earliness_group - self.deadline) / total_time_of_earliness_group
+        earliness_group = sorted(earliness_group, key=lambda x: (1 - beta_coef) * x[2]/x[1] - beta_coef * x[3]/x[1], reverse=True)
+        current_time_point = (self.deadline - total_time_of_earliness_group) if not beta_coef else 0
+
+        while(len(earliness_group)):
+            task = earliness_group.pop()
+            self.results.append([task[0], current_time_point])
+            current_time_point += task[1]
+            if current_time_point >= self.deadline:
+                break
+
+        tardiness_group = sorted(tardiness_group + earliness_group, key=lambda x: x[3]/x[1])
+        while(len(tardiness_group)):
+            task = tardiness_group.pop()
+            self.results.append([task[0], current_time_point])
+            current_time_point += task[1]
+
+    def solve_custtom_h2(self):
+
+        self.results = []
+        tasks = self.instance.zipped_tasks()
+
+        # 1) Poczatkowy sposob sortowania
+        tasks = sorted(tasks, key=lambda x: x[3]/x[2], reverse=True)
+        earliness_group, tardiness_group = [], []
+        earliness_w_sum, tardiness_w_sum = 0, 0
+        earliness_p_sum, tardiness_p_sum = 0, 0
+        # Structure: (ID, P, A, B)
+        # 2) Kryterium przydzialu
+
+        for task in tasks:
+            if earliness_w_sum < tardiness_w_sum + task[3]/task[1]: # and earliness_p_sum  self.deadline:
+                earliness_group.append(task)
+                earliness_w_sum += task[2]/task[1]
+                earliness_p_sum += task[1]
+            else:
+                tardiness_group.append(task)
+                tardiness_w_sum += task[3]/task[1]
+                tardiness_p_sum += task[1]
+        
+
+        #earliness_group = list(filter(lambda x: x[2] < x[3], tasks))
+        #tardiness_group = list(filter(lambda x: x[2] >= x[3], tasks))
+
+        total_time_of_earliness_group = sum(task[1] for task in earliness_group)     
+        beta_coef = max(0, total_time_of_earliness_group - self.deadline) / total_time_of_earliness_group
+        earliness_group = sorted(earliness_group, key=lambda x: (1 - beta_coef) * x[2]/x[1] - beta_coef * x[3]/x[1], reverse=True)
+        #earliness_group = sorted(earliness_group, key=lambda x: x[2]/x[1], reverse=True)
+        
+        current_time_point = max(0, self.deadline - total_time_of_earliness_group) if not beta_coef else 0
+
+        while(len(earliness_group)):
+            task = earliness_group.pop()
+            self.results.append([task[0], current_time_point])
+            current_time_point += task[1]
+            if current_time_point >= self.deadline:
+                break
+
+        tardiness_group = sorted(tardiness_group + earliness_group, key=lambda x: x[3]/x[1])
+        while(len(tardiness_group)):
+            task = tardiness_group.pop()
+            self.results.append([task[0], current_time_point])
+            current_time_point += task[1]
+
+    def solve_beta_equals_weights_in_b_gap(self):  
+        self.results = []
+        tasks = self.instance.zipped_tasks()
+
+        # Structure: (ID, P, A, B)
+        earliness_group = list(filter(lambda x: x[2] < x[3], tasks))
+        total_time_of_earliness_group = sum(task[1] for task in earliness_group) 
+
+        total_time_of_earliness_group = sum(task[1] for task in earliness_group)    
+        beta_coef = max(0, total_time_of_earliness_group - self.deadline) / total_time_of_earliness_group
+        earliness_group = sorted(earliness_group, key=lambda x: (1 - beta_coef) * x[2]/x[1] - beta_coef * x[3]/x[1], reverse=True)
+
+        current_time_point = (self.deadline - total_time_of_earliness_group) if not beta_coef else 0
+
+        perfect_deadline_gap = 0
+        last_perfect_task_id = None
+        last_perfect_task_instance_id = None 
+
+        while(len(earliness_group)):
+            task = earliness_group.pop()
+            next_time_point = current_time_point + task[1]
+
+            if next_time_point > self.deadline:
+                earliness_group.append(task)
+                last_perfect_task_instance_id = self.results[-1][0]
+                last_perfect_task_id = len(self.results) - 1
+                perfect_deadline_gap = self.deadline - (self.results[-1][1] + self.instance.p[last_perfect_task_instance_id])
+                break
+
+            self.results.append([task[0], current_time_point])
+            current_time_point += task[1]
+
+        tarliness_group = sorted(list(filter(lambda x: x[2] >= x[3], tasks)) + earliness_group, key=lambda x: x[3]/x[1])
+        while(len(tarliness_group)):
+            task = tarliness_group.pop()
+            self.results.append([task[0], current_time_point])
+            current_time_point += task[1]
+
+        if perfect_deadline_gap:
+            for num_iterator in range(len(self.results) // 2):
+                result_id = num_iterator
+                result_instance_id = self.results[result_id][0]
+                if self.instance.p[result_instance_id] == perfect_deadline_gap and self.instance.b[result_instance_id] > self.instance.b[self.results[last_perfect_task_id + 1][0]]:
+                    self.results[result_id][1] = self.deadline - perfect_deadline_gap
+
+                    for idxx in range(last_perfect_task_id + 1, len(self.results)):
+                        self.results[idxx][1] += perfect_deadline_gap
+
+                    for idxx in range(result_id):
+                        self.results[idxx][1] += self.instance.p[result_instance_id]
+       
+                    perfect_deadline_gap = 0
+
+    def solve_beta_equals_weights_in_b_swap_center(self):  
+        self.results = []
+        tasks = self.instance.zipped_tasks()
+
+        # Structure: (ID, P, A, B)
+        earliness_group = list(filter(lambda x: x[2] < x[3], tasks))
+        total_time_of_earliness_group = sum(task[1] for task in earliness_group) 
+
+        total_time_of_earliness_group = sum(task[1] for task in earliness_group)    
+        beta_coef = max(0, total_time_of_earliness_group - self.deadline) / total_time_of_earliness_group
+        earliness_group = sorted(earliness_group, key=lambda x: (1 - beta_coef) * x[2]/x[1] - beta_coef * x[3]/x[1], reverse=True)
+
+        current_time_point = (self.deadline - total_time_of_earliness_group) if not beta_coef else 0
+
+        while(len(earliness_group)):
+            task = earliness_group.pop()
+            next_time_point = current_time_point + task[1]
+
+            if next_time_point > self.deadline:
+                earliness_group.append(task)
+                break
+
+            self.results.append([task[0], current_time_point])
+            current_time_point += task[1]
+
+        center_id = len(self.results) - 1
+
+        tarliness_group = sorted(list(filter(lambda x: x[2] >= x[3], tasks)) + earliness_group, key=lambda x: x[3]/x[1])
+        while(len(tarliness_group)):
+            task = tarliness_group.pop()
+            self.results.append([task[0], current_time_point])
+            current_time_point += task[1]
+
+    def the_last_hope(self): 
+        self.results = []
+        tasks = self.instance.zipped_tasks()
+
+        def create_b_set(tasks):
+            p = sum([task[1] for task in tasks])
+            results = []
+            time_point = self.deadline - p
+            for task in tasks:
+                results.append([task[0], time_point])
+                time_point += task[1]
+
+            return results
+
+        def create_a_set(tasks):
+            results = []
+            time_point = self.deadline
+            for task in sorted(tasks, key=lambda x: x[1]/x[3]):
+                results.append([task[0], time_point])
+                time_point += task[1]
+
+            return results
+            
+
+        earliness_tasks = []
+        earliness_sum_p = 0
+        tardliness_tasks = []
+        tardliness_sum_p = 0
+
+        tasks = sorted(tasks, key=lambda x: x[3]/x[2])
+        next_step = False
+        used_task = []
+
+        stack = []
+        while(len(tasks)):
+            task = tasks.pop()
+            if task[1] <= self.deadline - earliness_sum_p:
+                earliness_tasks.append(task)
+                earliness_sum_p += task[1]
+            else:
+                stack.append(task)
+
+        b_set = create_b_set(earliness_tasks)
+        a_set = create_a_set(stack)
+        value = self.calculate_cost(b_set + a_set)
+
+        while(True):
+            earliness_tasks.append(stack.pop(0))
+            new_b_set = create_b_set(earliness_tasks)
+            new_a_set = create_a_set(stack)
+            new_result = self.calculate_cost(new_b_set + new_a_set)
+            if new_result < value:
+                b_set = new_b_set
+                a_set = new_a_set
+            else:
+                break
+
+        self.results = b_set + a_set
+
+
 
     def is_valid(self, values=None):
     
@@ -214,23 +442,22 @@ class Solver():
             return "Invalid results!"
 
         sorted_results = sorted(results, key=lambda x: x[1])
+
         checkpoint = 0
         timeline = []
         
-        for task_id, start_time in results:
+        for task_id, start_time in sorted_results:
             delta = abs(checkpoint - start_time)
-            for empty_space_id in range(delta):
+            for _ in range(delta):
                 timeline.append("_")
 
-            timeline.append("[%s" % task_id)
-            for time in range(self.instance.p[task_id] - len(str(task_id))):
-                timeline.append('-')
-            timeline.append("]")
+            for time in range(self.instance.p[task_id]):
+                timeline.append(chr((ord('A') + task_id % (ord('Z') - ord('A')))))
 
             checkpoint = self.instance.p[task_id] + start_time
   
         timeline.insert(self.deadline, "|")
-        return ''.join(timeline)
+        return '[' + ''.join(timeline) + ']'
 
     def pretty_log(self):
         pass
@@ -264,9 +491,10 @@ def test():
     print("Timeline: %s" % test_solver.generate_timeline())
 
 def instance():
+    
     instances = parse_input_file(sys.argv[1])
-    instance_id = int(sys.argv[2]) - 1
-    deadline = float(sys.argv[3])
+    instance_id = int(sys.argv[3]) - 1
+    deadline = float(sys.argv[2])
 
     #print("Instance:")
     #for record in instances[0].zipped_tasks():
@@ -274,18 +502,29 @@ def instance():
 
     # print("Total P = %d" % sum(instances[0].p))
 
-    test_solver = Solver(instances[instance_id], h=deadline)
+    
     #test_solver.solve()
 
     # print("Deadline: %d" % test_solver.deadline)
 
     #print("Cost: %d (%s)" % (test_solver.calculate_cost(), str(test_solver.is_valid())))
 
+    instance = Instance()
+    instance.add_job(3, 2, 8)
+    instance.add_job(3, 4, 5)
+    instance.add_job(1, 7, 5)
+
+    test_solver = Solver(instances[instance_id], h=deadline)
+    #test_solver = Solver(instance, h=0.8)
     methods = [
         test_solver.solve_without_beta,
         test_solver.solve_beta_equals_weights_in_a,
         test_solver.solve_beta_equals_weights_in_b,
-        test_solver.solve_beta_equals_as_common_set
+        test_solver.solve_beta_equals_as_common_set,
+        test_solver.solve_custtom_h1,
+        test_solver.solve_custtom_h2,
+        test_solver.solve_beta_equals_weights_in_b_gap,
+        test_solver.the_last_hope
     ]
 
     for method in methods:
@@ -293,6 +532,33 @@ def instance():
         print("Cost: %d (%s) (%s) (%s)" % (test_solver.calculate_cost(), str(test_solver.is_valid()), len(test_solver.results), method.__name__))
 
     """
+    print(' --- ')
+    print(test_solver.results)
+    print(test_solver.generate_timeline())
+    print("Cost: %d (%s) (%s) (%s)" % (test_solver.calculate_cost(), str(test_solver.is_valid()), len(test_solver.results), method.__name__))
+
+    print(' --- ')
+    test_solver.results = [[1, 12], [6, 0], [3, 18], [2, 31], [8, 44], [5, 56], [4, 68], [7, 80], [0, 83], [9, 103]]
+    print(test_solver.results)
+    print(test_solver.generate_timeline())
+    print("Cost: %d (%s) (%s) (%s)" % (test_solver.calculate_cost(), str(test_solver.is_valid()), len(test_solver.results), method.__name__))
+    """
+
+    """
+    print(test_solver.results)
+    print("DEADLINE:", test_solver.deadline)
+    test_solver.results = [[result[0], result[1] + 1] for result in test_solver.results]
+    print(test_solver.results)
+    print("Cost: %d (%s) (%s) (%s)" % (test_solver.calculate_cost(), str(test_solver.is_valid()), len(test_solver.results), method.__name__))
+
+    test_solver.results = [[0, 1], [2, 4], [1, 5]]
+    print(test_solver.results)
+    print("Cost: %d (%s) (%s) (%s)" % (test_solver.calculate_cost(), str(test_solver.is_valid()), len(test_solver.results), method.__name__))
+    print(test_solver.generate_timeline())
+
+    """
+    """
+
     test_solver.solve_without_beta()
 
     test_solver.solve_beta_equals_weights_in_a()
