@@ -55,6 +55,7 @@ class Instance():
 
 class Solver():
     def __init__(self, instance, h=0.2):
+        self.h = h
         self.instance = instance
         self.deadline = floor(sum(instance.p) * h)
         self.results = []
@@ -89,22 +90,26 @@ class Solver():
         tasks = self.instance.zipped_tasks()
 
         # Structure: (ID, P, A, B)
-        earliness_group = list(filter(lambda x: x[2] <= x[3], tasks))
+        earliness_group = list(filter(lambda x: x[2] < x[3], tasks))
         total_time_of_earliness_group = sum(task[1] for task in earliness_group)    
+        
         beta_coef = max(0, total_time_of_earliness_group - self.deadline) / total_time_of_earliness_group
-        earliness_group = sorted(earliness_group, key=lambda x: (1 - beta_coef) * x[2]/x[1] - beta_coef * x[3]/x[1], reverse=True)
+        earliness_group = sorted(earliness_group, key=lambda x: min(1, 1 - beta_coef + self.h) * x[3]/x[2] - max(0, beta_coef - (self.h)) * x[3]/x[1], reverse=True)
 
         current_time_point = (self.deadline - total_time_of_earliness_group) if not beta_coef else 0
 
         while(len(earliness_group)):
             task = earliness_group.pop()
+            next_time_point = current_time_point + task[1]
+
+            if next_time_point > self.deadline:
+                earliness_group.append(task)
+                break
+ 
             self.results.append([task[0], current_time_point])
             current_time_point += task[1]
 
-            if current_time_point >= self.deadline:
-                break
-
-        tarliness_group = sorted(list(filter(lambda x: x[2] > x[3], tasks)) + earliness_group, key=lambda x: x[3]/x[1])
+        tarliness_group = sorted(list(filter(lambda x: x[2] >= x[3], tasks)) + earliness_group, key=lambda x: x[3]/x[1])
         while(len(tarliness_group)):
             task = tarliness_group.pop()
             self.results.append([task[0], current_time_point])
@@ -408,8 +413,6 @@ class Solver():
                 break
 
         self.results = b_set + a_set
-
-
 
     def is_valid(self, values=None):
     
