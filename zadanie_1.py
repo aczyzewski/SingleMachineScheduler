@@ -1,7 +1,6 @@
 import sys
 import os
 from math import floor
-from parse_results import get_results_object
 import time
 import datetime
 import numpy as np
@@ -43,9 +42,6 @@ class Solver():
         
         beta_coef = max(0, total_time_of_earliness_group - self.deadline) / total_time_of_earliness_group
         earliness_group = sorted(earliness_group, key=lambda x: (1 + (1 - sig_h)) * x[2]/x[3] + (1 - beta_coef + sig_h) * x[2]/x[1] - (beta_coef - sig_h) * x[3]/x[1], reverse=True)
-
-        print('    ** b = %s | sig_h = %s | key1 = %s | key2 = %s **' % (round(beta_coef, 4), round(sig_h, 4), min(1, 1 - beta_coef + sig_h), max(0, beta_coef - sig_h)))
-
         current_time_point = (self.deadline - total_time_of_earliness_group) if not beta_coef else 0
 
         while(len(earliness_group)):
@@ -63,7 +59,7 @@ class Solver():
         
         """
         gap = self.deadline - (self.results[-1][1] + self.instance.p[self.results[-1][0]])
-        if gap:
+        if gap and self.results[0][1] != 0:
             for task_idx in range(len(tarliness_group)):
                 if self.instance.p[tarliness_group[task_idx][0]] == gap:
                     self.results.append([tarliness_group[task_idx][0], self.deadline - gap])
@@ -71,7 +67,6 @@ class Solver():
                     del tarliness_group[task_idx]
                     break
         """
-
 
         while(len(tarliness_group)):
             task = tarliness_group.pop()
@@ -144,19 +139,31 @@ def parse_input_file(filename):
         instances.append(current_instance)
 
     return instances
-
+    
 if __name__ == '__main__':
-    input_files = [file for file in os.listdir('.') if 'sch' in file and file.endswith('.txt')] \
-        if len(sys.argv) < 2 else [sys.argv[1]]
 
-    instance_ks = [1, 6] if len(sys.argv) < 3 else [int(sys.argv[2])]
-    deadlines = [0.4, 0.6] if len(sys.argv) < 4 else [float(sys.argv[3])]
-    gt = get_results_object()
+    input_file = 'sch%s.txt' % sys.argv[1]
+    instance_k = 0 if len(sys.argv) < 3 else int(sys.argv[2])
+    deadline = 0.4 if len(sys.argv) < 4 else float(sys.argv[3])
+    instance = parse_input_file(input_file)[instance_k - 1]
 
+    print(input_file[3:-4], instance_k, deadline)
+
+    solver = Solver(instance, deadline)            
+    solver.solve()
+
+    results = sorted(solver.results, key=lambda x: x[0])
+    for task_id, start_time in results:
+        print(start_time, start_time + solver.instance.p[task_id])
+
+    print(solver.calculate_cost())
+
+    """
     csv_name = 'output-' + datetime.datetime.now().strftime('%Y_%m_%d_%H_%M_%S') + '.csv'
     csv = open(csv_name, 'w')
     csv.write('instance, k, h, cost, gt, optimal, time\n')
 
+    
     input_files = sorted(input_files, key=lambda x: int(x.split('.')[0][3:]))
     for input_file in input_files:
         instance_size = int(input_file.split('.')[0][3:])
@@ -200,4 +207,7 @@ if __name__ == '__main__':
             print('--- K COST: %s ---\n' % cost_k_total)
         print("TOTAL COST: %s" % total_cost)
     csv.close()
+    """
+
+
                 

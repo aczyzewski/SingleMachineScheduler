@@ -1,0 +1,1 @@
+python3 simplemachinescheduler.py $1 $2 $3
