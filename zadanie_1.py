@@ -99,7 +99,8 @@ class Solver():
         return score
 
     def generate_timeline(self, values=None, group=True):
-
+        """ Deprecated! """
+        
         results = values if values else self.results
         if not self.is_valid(results):
             return "Invalid results!"
