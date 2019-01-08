@@ -8,8 +8,8 @@ from random import shuffle, randint, random
 from zadanie_1 import Solver, Instance
 from zadanie_1 import parse_input_file
 
+"""
 def timer(func):
-    """ Decorator! :D """
     def function(*args, **kwargs):
         start = time.time()
         result = func(*args, **kwargs)
@@ -17,6 +17,7 @@ def timer(func):
         print("[Timer] Elapsed time: {:.3f} s".format((stop - start)))
         return result
     return function
+"""
 
 class BetterSolver(Solver):
 
@@ -38,8 +39,7 @@ class BetterSolver(Solver):
          tasks = se + sl
          return self.convert_list_of_tasks_to_results(tasks, offset=offset)
 
-    @timer
-    def solve(self, i_max=3600, t_0=50000, alpha=0.995):
+    def solve(self, i_max=3600, t_0=50000, alpha=0.995, use_heuristic_as_first_solution=True):
         """ Simulated annealing 
         
             Args:
@@ -161,17 +161,27 @@ class BetterSolver(Solver):
         # ( 0, 2, 4, 8)
         tasks = self.instance.zipped_tasks()
 
+        # DEBUG !!!
+        super(BetterSolver, self).solve()
+        print(" --- SIMPLE HEURISTIC: --- ")
+        print("COST:", self.calculate_cost(self.results))
+        print("VALID:", self.is_valid(self.results))
+        print("NUMBER OF TASKS:", len(self.results))
+
+        # Generate S_e and S_l  
+        S_E, S_L = [], []
+
+        if use_heuristic_as_first_solution:
+            #super(BetterSolver, self).solve()
+            S_E, S_L = self.results_se, self.results_sl
+        else:
+            S_E, S_L = generate_se_sl(tasks, self.deadline)
+
         # Just to be sure
         self.results = []
 
-        # Generate S_e and S_l  
-        S_E, S_L = generate_se_sl(tasks, self.deadline)
         if len(S_E + S_L) != len(tasks):
-            raise Exception("Number of the elements in S_E and S_L is not equal to the total number of tasks!")
-
-        # Tasks representation
-        ks = [0] * len(tasks)
-        for task in S_L: ks[task[0]] = 1
+            raise Exception("Number of the elements in S_E and S_L (%d) is not equal to the total number of tasks (%d)!" % (len(S_E + S_L), len(tasks)))
 
         # Algorithm
         T =  t_0        # Current temperature
@@ -193,6 +203,7 @@ class BetterSolver(Solver):
         times = [0.1] * 4
         running_mean_time = np.mean(times)
         # for _ in range(i_max):
+
         while time_cumsum + running_mean_time <= (len(tasks) * 0.1 - 0.145):
             start = time()
             new_S_E, new_S_L = greedy_local_search(S_E, S_L)
@@ -218,6 +229,7 @@ class BetterSolver(Solver):
         print("VALID:", self.is_valid(timeline))
         print("NUMBER OF TASKS:", len(timeline))
 
+        self.results = timeline
     
 if __name__ == '__main__':
 
@@ -226,14 +238,18 @@ if __name__ == '__main__':
     deadline = 0.4 if len(sys.argv) < 4 else float(sys.argv[3])
     instance = parse_input_file(input_file)[instance_k - 1]
 
+    # Determinujemy czy uzywac heurystyki czy nie
+    htic = False if len(sys.argv) < 5 else bool(int(sys.argv[4]))
+
     print(ntpath.split(input_file)[1], instance_k, deadline)
 
     solver = BetterSolver(instance, deadline) 
-         
-    solver.solve()
+    solver.solve(i_max=3600, t_0=50000, alpha=0.995, use_heuristic_as_first_solution=htic)
 
+    """
     results = sorted(solver.results, key=lambda x: x[0])
     for task_id, start_time in results:
         print(start_time, start_time + solver.instance.p[task_id])
+    """
 
-    print(solver.calculate_cost())
+    print("FINAL COST:", solver.calculate_cost())

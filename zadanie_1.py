@@ -34,6 +34,9 @@ class Solver():
             return 1.0/(1.0 + np.exp(-z * 3))
 
         self.results = []
+        self.results_se = []
+        self.results_sl = []
+
         tasks = self.instance.zipped_tasks()
         sig_h = sigmoid(self.h - 0.5)
             
@@ -46,10 +49,12 @@ class Solver():
 
         while(len(earliness_group)):
             task = earliness_group.pop()
+            self.results_se.append(task)
             next_time_point = current_time_point + task[1]
-
+            
             if next_time_point > self.deadline:
                 earliness_group.append(task)
+                self.results_se.pop()
                 break
  
             self.results.append([task[0], current_time_point])
@@ -70,6 +75,7 @@ class Solver():
 
         while(len(tarliness_group)):
             task = tarliness_group.pop()
+            self.results_sl.append(task)
             self.results.append([task[0], current_time_point])
             current_time_point += task[1]
 
@@ -146,6 +152,7 @@ if __name__ == '__main__':
     input_file = 'sch%s.txt' % sys.argv[1]
     instance_k = 0 if len(sys.argv) < 3 else int(sys.argv[2])
     deadline = 0.4 if len(sys.argv) < 4 else float(sys.argv[3])
+
     instance = parse_input_file(input_file)[instance_k - 1]
 
     print(input_file[3:-4], instance_k, deadline)
