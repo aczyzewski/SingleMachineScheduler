@@ -1,10 +1,12 @@
 
 import sys
 import os
+import ntpath
 
 def parse_results(file):
     results_lines = open(file, 'r').read().split('\n')
-    instance_size = int(file.split('.')[0][3:])
+    file_name = ntpath.split(file)[1]
+    instance_size = int(file_name.split('.')[0][3:])
     instance_deadlines = [0.2, 0.4, 0.6, 0.8]
 
     local_results = {}
@@ -18,10 +20,10 @@ def parse_results(file):
 
     return instance_size, local_results
 
-def get_results_object(path='.'):
+def get_results_object(path='results'):
     
     values = {}
-    results = [file for file in os.listdir(path) if 'res' in file and file.endswith('.txt')]
+    results = [os.path.join(path, file) for file in os.listdir(path) if 'res' in file and file.endswith('.txt')]
     for result_file in results:
         instance_size, res = parse_results(result_file)
         values[instance_size] = res

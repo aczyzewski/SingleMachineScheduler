@@ -8,8 +8,8 @@ import math
 from random import shuffle, randint, random
 from zadanie_1 import Solver, Instance
 from zadanie_1 import parse_input_file
+from parse_results import get_results_object
 
-"""
 def timer(func):
     def function(*args, **kwargs):
         start = time()
@@ -18,7 +18,6 @@ def timer(func):
         print("[Timer] Elapsed time: {:.3f} s".format((stop - start)))
         return result
     return function
-"""
 
 class BetterSolver(Solver):
 
@@ -40,6 +39,7 @@ class BetterSolver(Solver):
          tasks = se + sl
          return self.convert_list_of_tasks_to_results(tasks, offset=offset)
 
+    @timer
     def solve(self, i_max=3600, t_0=50000, alpha=0.995, use_heuristic_as_first_solution=True):
         """ Simulated annealing 
         
@@ -52,9 +52,9 @@ class BetterSolver(Solver):
 
         """
 
-        def sort_left_property(tasks):
+        def sort_left_property(tasks, reverse=True):
             """ Non-increasing order of the rations p_i/a_i """
-            return sorted(tasks, key=lambda x: x[1]/x[2], reverse=True)
+            return sorted(tasks, key=lambda x: x[1]/x[2], reverse=reverse)
 
         def sort_right_property(tasks):
             """ Non-decreasing order of the rations p_i/b_i """
@@ -64,7 +64,7 @@ class BetterSolver(Solver):
             """ Sort the jobs according to V-shape property """
 
             S_E, S_L = [], []
-            sorted_according_to_the_left_property = sort_left_property(tasks)[::-1]
+            sorted_according_to_the_left_property = sort_left_property(tasks, False)
             
             current_time_point = 0
             while(len(sorted_according_to_the_left_property)):
@@ -79,25 +79,21 @@ class BetterSolver(Solver):
             S_L = sort_right_property(sorted_according_to_the_left_property)
             return S_E, S_L
 
-        def greedy_local_search(S_E, S_L, num_of_iterations=1):
+        def greedy_local_search(S_E, S_L, current_f_x):
 
-            timeline = self.convert_subsets_of_tasks_to_results(S_E, S_L)
-            best_cost_value = 20 * self.calculate_cost(timeline)
-            best_configuration = (S_E.copy(), S_L.copy())
+            best_cost_value = 10 * current_f_x
+            best_configuration = [S_E.copy(), S_L.copy()]
 
-            for _ in range(num_of_iterations):
+            k = np.random.choice([0, 1])
+            from_set, to_set = (S_E, S_L) if not k else (S_L, S_E)
+            sort_order = {"S_E": from_set, "S_L": to_set} if not k else {"S_E": to_set, "S_L": from_set}
+            status = False
 
-                k = np.random.choice([0, 1])
+            # operation_type = None
+            # arguments = []
 
-                best_local_configuration = [best_configuration[0].copy(), best_configuration[1].copy()]
-                best_local_cost = best_cost_value
-
-                S_E, S_L = best_local_configuration.copy()
-                from_set, to_set = (S_E, S_L) if not k else (S_L, S_E)
-                sort_order = {"S_E": from_set, "S_L": to_set} if not k else {"S_E": to_set, "S_L": from_set}
-                
-                if not len(from_set): continue 
-
+            if len(from_set):
+                status = True
                 # Get random task
                 ith = randint(0, len(from_set) - 1)
                 selected_task = from_set.pop(ith)
@@ -115,12 +111,11 @@ class BetterSolver(Solver):
                     to_set = sort_left_property(to_set) 
                     sort_order["S_E"] = to_set
 
-                timeline = self.convert_subsets_of_tasks_to_results(sort_order['S_E'], sort_order['S_L'])
-                local_cost = self.calculate_cost(timeline)
+                local_cost = self.calculate_cost_on_tasks(sort_order['S_E'], sort_order['S_L'])
 
-                if local_cost < best_local_cost:
-                    best_local_cost = local_cost
-                    best_local_configuration = (sort_order['S_E'].copy(), sort_order['S_L'].copy())
+                if local_cost < best_cost_value:
+                    best_cost_value = local_cost
+                    best_configuration = (sort_order['S_E'].copy(), sort_order['S_L'].copy())
 
                 # 2) SWAP TASKS
                 for task_id in range(len(to_set)):
@@ -144,18 +139,13 @@ class BetterSolver(Solver):
                         temp_from_set = sort_right_property(temp_from_set)
                         temp_sort_order['S_L'] = temp_from_set
 
-                    timeline = self.convert_subsets_of_tasks_to_results(temp_sort_order['S_E'], temp_sort_order['S_L'])
-                    local_cost = self.calculate_cost(timeline)
+                    local_cost = self.calculate_cost_on_tasks(temp_sort_order['S_E'], temp_sort_order['S_L'])
 
-                    if local_cost < best_local_cost:
-                        best_local_cost = local_cost
-                        best_local_configuration = (temp_sort_order['S_E'], temp_sort_order['S_L'])
+                    if local_cost < best_cost_value:
+                        best_cost_value = local_cost
+                        best_configuration = (temp_sort_order['S_E'], temp_sort_order['S_L'])
 
-                if best_local_cost < best_cost_value:
-                    best_cost_value = best_local_cost
-                    best_configuration = best_local_configuration
-
-            return best_configuration
+            return status, best_configuration[0], best_configuration[1], best_cost_value
     
         # Single task structure in `tasks` list:
         # [ID, P, A, B]
@@ -163,21 +153,14 @@ class BetterSolver(Solver):
         tasks = self.instance.zipped_tasks()
         offset_determined_by_heruistic_function = None
 
-        # DEBUG !!!
-        super(BetterSolver, self).solve()
-
-        print(" --- SIMPLE HEURISTIC: --- ")
-        print("COST:", self.calculate_cost(self.results))
-        print("VALID:", self.is_valid(self.results))
-        print("NUMBER OF TASKS:", len(self.results))
-
         # Generate S_e and S_l  
         S_E, S_L = [], []
 
         if use_heuristic_as_first_solution:
-            #super(BetterSolver, self).solve()
+            super(BetterSolver, self).solve()
             S_E, S_L = self.results_se, self.results_sl
             offset_determined_by_heruistic_function = self.results[0][1]
+            print("HEURISTIC VAL:", self.calculate_cost(self.results))
         else:
             S_E, S_L = generate_se_sl(tasks, self.deadline)
 
@@ -193,26 +176,24 @@ class BetterSolver(Solver):
 
         # best_x is set to X
         # best_f_x denotes the objectiv value for best_x
-        best_x = self.convert_subsets_of_tasks_to_results(S_E, S_L, h_offset=offset_determined_by_heruistic_function)
-        best_f_x = self.calculate_cost(best_x)
-
-        print(" --- BEFORE: --- ")
-        print("COST:", best_f_x)
-        print("VALID:", self.is_valid(best_x))
-        print("NUMBER OF TASKS:", len(best_x))
+        
+        best_x = (S_E, S_L)
+        best_f_x = self.calculate_cost_on_tasks(*best_x, offset_determined_by_heruistic_function)
 
         # Iterations
         time_cumsum = 0
-        times = [0.1] * 4
+        times = [0.15] * 4
         running_mean_time = np.mean(times)
+
+        current_iteration = 0
 
         f_x = best_f_x
         while time_cumsum + running_mean_time <= (len(tasks) * 0.1 - 0.145):
+
             start = time()
 
-            new_S_E, new_S_L = greedy_local_search(S_E, S_L)
-            new_x = self.convert_subsets_of_tasks_to_results(new_S_E, new_S_L)
-            new_f_x = self.calculate_cost(new_x)
+            status, new_S_E, new_S_L, new_f_x = greedy_local_search(S_E, S_L, f_x)
+            new_x = [new_S_E, new_S_L]
             delta = new_f_x - f_x
 
             if delta > 0:
@@ -226,24 +207,26 @@ class BetterSolver(Solver):
 
                 if f_x < best_f_x:
                     best_f_x = f_x
-                    best_x = new_x
+                    best_x = [new_x[0].copy(), new_x[1].copy()]
 
             T *= alpha 
             stop = time()
             elapsed_time = stop - start
-            times.pop(0)
             times.append(elapsed_time)
-            running_mean_time = np.mean(times)
+            running_mean_time = np.mean(times[-4:])
             time_cumsum += elapsed_time
+            current_iteration += 1
 
-        timeline = best_x
+        self.results = best_x
+        timeline = self.convert_subsets_of_tasks_to_results(*best_x)
+
         print(" --- AFTER: --- ")
         print("COST:", self.calculate_cost(timeline))
         print("VALID:", self.is_valid(timeline))
         print("NUMBER OF TASKS:", len(timeline))
-
-        self.results = timeline
     
+        print("ITERATIONS:", current_iteration)
+
 if __name__ == '__main__':
 
     input_file = 'input/sch%s.txt' % sys.argv[1]
@@ -254,7 +237,9 @@ if __name__ == '__main__':
     # Determinujemy czy uzywac heurystyki czy nie
     htic = False if len(sys.argv) < 5 else bool(int(sys.argv[4]))
 
-    print(ntpath.split(input_file)[1], instance_k, deadline)
+    intput_file_name = ntpath.split(input_file)[1]
+    n = int(intput_file_name.split('.')[0][3:])
+    print(intput_file_name, instance_k, deadline)
 
     solver = BetterSolver(instance, deadline) 
     solver.solve(i_max=3600, t_0=50000, alpha=0.995, use_heuristic_as_first_solution=htic)
@@ -265,4 +250,8 @@ if __name__ == '__main__':
         print(start_time, start_time + solver.instance.p[task_id])
     """
 
-    print("FINAL COST:", solver.calculate_cost())
+    results = get_results_object()
+
+    print("FINAL COST:", solver.calculate_cost_on_tasks(*solver.results))
+    print("REF:", results[n][instance_k][deadline])
+

@@ -13,6 +13,10 @@ class Instance():
         # [ID, P, A, B]
         return list(zip(list(range(len(self.p))), self.p, self.a, self.b))
 
+    def get_task_info_dict(self):
+        output = [(tid, (p, a, b)) for tid, p, a, b in zip(list(range(len(self.p))), self.p, self.a, self.b)]
+        return dict(output)
+
     def add_job(self, p, a, b):
         self.p.append(p)
         self.a.append(a)
@@ -102,6 +106,20 @@ class Solver():
             delta = self.deadline - (start_time + self.instance.p[task_id])
             if delta > 0: score += delta * self.instance.a[task_id]
             if delta < 0: score += abs(delta) * self.instance.b[task_id]
+        return score
+
+    def calculate_cost_on_tasks(self, se, sl, offset=None):
+
+        #[ID, P, A, B]
+        current_time_point = offset if offset is not None else max(0, self.deadline - sum([task[1] for task in se]))
+        score = 0
+        tasks = se + sl
+        for _, p, a, b in tasks:
+            delta = self.deadline - (current_time_point + p)
+            if delta > 0: score += delta *  a
+            if delta < 0: score += abs(delta) * b
+            current_time_point += p
+
         return score
 
     def generate_timeline(self, values=None, group=True):
