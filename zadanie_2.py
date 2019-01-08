@@ -1,6 +1,6 @@
 import os
 import sys
-import time
+from timeit import default_timer as time
 import ntpath
 import numpy as np
 
@@ -189,7 +189,12 @@ class BetterSolver(Solver):
         print("NUMBER OF TASKS:", len(timeline))
 
         # Iterations
-        for _ in range(i_max):
+        time_cumsum = 0
+        times = [0.1] * 4
+        running_mean_time = np.mean(times)
+        # for _ in range(i_max):
+        while time_cumsum + running_mean_time <= (len(tasks) * 0.1 - 0.145):
+            start = time()
             new_S_E, new_S_L = greedy_local_search(S_E, S_L)
             delta = self.calculate_cost(self.convert_subsets_of_tasks_to_results(new_S_E, new_S_L)) - f_x
 
@@ -200,6 +205,12 @@ class BetterSolver(Solver):
                 S_E, S_L = new_S_E, new_S_L
 
             T *= alpha 
+            stop = time()
+            elapsed_time = stop - start
+            times.pop(0)
+            times.append(elapsed_time)
+            running_mean_time = np.mean(times)
+            time_cumsum += elapsed_time
 
         timeline = self.convert_subsets_of_tasks_to_results(S_E, S_L)
         print(" --- AFTER: --- ")
