@@ -11,9 +11,9 @@ from zadanie_1 import parse_input_file
 """
 def timer(func):
     def function(*args, **kwargs):
-        start = time.time()
+        start = time()
         result = func(*args, **kwargs)
-        stop = time.time()
+        stop = time()
         print("[Timer] Elapsed time: {:.3f} s".format((stop - start)))
         return result
     return function
