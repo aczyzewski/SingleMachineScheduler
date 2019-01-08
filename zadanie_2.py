@@ -3,6 +3,7 @@ import sys
 from timeit import default_timer as time
 import ntpath
 import numpy as np
+import math
 
 from random import shuffle, randint, random
 from zadanie_1 import Solver, Instance
@@ -34,8 +35,8 @@ class BetterSolver(Solver):
 
         return local_results
 
-    def convert_subsets_of_tasks_to_results(self, se, sl):
-         offset = max(0, self.deadline - sum([task[1] for task in se]))
+    def convert_subsets_of_tasks_to_results(self, se, sl, h_offset=None):
+         offset = h_offset if h_offset is not None else max(0, self.deadline - sum([task[1] for task in se]))
          tasks = se + sl
          return self.convert_list_of_tasks_to_results(tasks, offset=offset)
 
@@ -160,9 +161,11 @@ class BetterSolver(Solver):
         # [ID, P, A, B]
         # ( 0, 2, 4, 8)
         tasks = self.instance.zipped_tasks()
+        offset_determined_by_heruistic_function = None
 
         # DEBUG !!!
         super(BetterSolver, self).solve()
+
         print(" --- SIMPLE HEURISTIC: --- ")
         print("COST:", self.calculate_cost(self.results))
         print("VALID:", self.is_valid(self.results))
@@ -174,6 +177,7 @@ class BetterSolver(Solver):
         if use_heuristic_as_first_solution:
             #super(BetterSolver, self).solve()
             S_E, S_L = self.results_se, self.results_sl
+            offset_determined_by_heruistic_function = self.results[0][1]
         else:
             S_E, S_L = generate_se_sl(tasks, self.deadline)
 
@@ -188,32 +192,41 @@ class BetterSolver(Solver):
         i_iter = 0      # Current iteration
 
         # best_x is set to X
-        # F_x denotes the objectiv value for X
-        best_x = self.convert_subsets_of_tasks_to_results(S_E, S_L)
-        f_x = self.calculate_cost(best_x)
+        # best_f_x denotes the objectiv value for best_x
+        best_x = self.convert_subsets_of_tasks_to_results(S_E, S_L, h_offset=offset_determined_by_heruistic_function)
+        best_f_x = self.calculate_cost(best_x)
 
-        timeline = self.convert_subsets_of_tasks_to_results(S_E, S_L)
         print(" --- BEFORE: --- ")
-        print("COST:", self.calculate_cost(timeline))
-        print("VALID:", self.is_valid(timeline))
-        print("NUMBER OF TASKS:", len(timeline))
+        print("COST:", best_f_x)
+        print("VALID:", self.is_valid(best_x))
+        print("NUMBER OF TASKS:", len(best_x))
 
         # Iterations
         time_cumsum = 0
         times = [0.1] * 4
         running_mean_time = np.mean(times)
-        # for _ in range(i_max):
 
+        f_x = best_f_x
         while time_cumsum + running_mean_time <= (len(tasks) * 0.1 - 0.145):
             start = time()
+
             new_S_E, new_S_L = greedy_local_search(S_E, S_L)
-            delta = self.calculate_cost(self.convert_subsets_of_tasks_to_results(new_S_E, new_S_L)) - f_x
+            new_x = self.convert_subsets_of_tasks_to_results(new_S_E, new_S_L)
+            new_f_x = self.calculate_cost(new_x)
+            delta = new_f_x - f_x
 
             if delta > 0:
-                if random() < np.exp ** (-1 * delta / T):
+                if random() < (math.exp((-1 * delta) / T)):
                     S_E, S_L = new_S_E, new_S_L
+                    f_x = new_f_x
+                    
             elif delta < 0:
                 S_E, S_L = new_S_E, new_S_L
+                f_x = new_f_x
+
+                if f_x < best_f_x:
+                    best_f_x = f_x
+                    best_x = new_x
 
             T *= alpha 
             stop = time()
@@ -223,7 +236,7 @@ class BetterSolver(Solver):
             running_mean_time = np.mean(times)
             time_cumsum += elapsed_time
 
-        timeline = self.convert_subsets_of_tasks_to_results(S_E, S_L)
+        timeline = best_x
         print(" --- AFTER: --- ")
         print("COST:", self.calculate_cost(timeline))
         print("VALID:", self.is_valid(timeline))
