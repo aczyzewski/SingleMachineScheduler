@@ -4,13 +4,10 @@ from timeit import default_timer as time
 import ntpath
 import numpy as np
 import math
-import cProfile
-import bisect
 
 from random import shuffle, randint, random
 from zadanie_1 import Solver, Instance
 from zadanie_1 import parse_input_file
-from parse_results import get_results_object
 
 def timer(func):
     def function(*args, **kwargs):
@@ -173,7 +170,7 @@ class BetterSolver(Solver):
         # best_x is set to X
         # best_f_x denotes the objectiv value for best_x
         
-        best_x = [S_E, S_L]
+        best_x = [S_E[:], S_L[:]]
         best_f_x = self.calculate_cost_on_dict(*best_x, task_info_dict, offset=offset_determined_by_heruistic_function)
 
         # Iterations
