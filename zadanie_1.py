@@ -14,7 +14,7 @@ class Instance():
         return list(zip(list(range(len(self.p))), self.p, self.a, self.b))
 
     def get_task_info_dict(self):
-        output = [(tid, (p, a, b)) for tid, p, a, b in zip(list(range(len(self.p))), self.p, self.a, self.b)]
+        output = [(tid, (p, a, b, p/a, p/b)) for tid, p, a, b in zip(list(range(len(self.p))), self.p, self.a, self.b)]
         return dict(output)
 
     def add_job(self, p, a, b):
@@ -31,6 +31,16 @@ class Solver():
         self.instance = instance
         self.deadline = floor(sum(instance.p) * h)
         self.results = []
+
+        self.jumps = {
+            1000: 2,
+            500: 1,
+            200: 1,
+            100: 1,
+            50: 1,
+            20: 1,
+            10: 1
+        }
 
     def solve(self):  
 
@@ -53,7 +63,7 @@ class Solver():
 
         while(len(earliness_group)):
             task = earliness_group.pop()
-            self.results_se.append(task)
+            self.results_se.append(task[0])
             next_time_point = current_time_point + task[1]
             
             if next_time_point > self.deadline:
@@ -79,7 +89,7 @@ class Solver():
 
         while(len(tarliness_group)):
             task = tarliness_group.pop()
-            self.results_sl.append(task)
+            self.results_sl.append(task[0])
             self.results.append([task[0], current_time_point])
             current_time_point += task[1]
 
@@ -120,6 +130,22 @@ class Solver():
             if delta < 0: score += abs(delta) * b
             current_time_point += p
 
+        return score
+
+    def calculate_cost_on_dict(self, se, sl, info_dict, offset=None, jump=None):
+        #[ID, P, A, B]
+        current_time_point = offset if offset is not None else max(0, self.deadline - sum([info_dict[task][0] for task in se]))
+        
+        se = se[:]
+        se.extend(sl)
+
+        score = 0
+        for task_id in se:
+            p, a, b, _, _ = info_dict[task_id]
+            delta = self.deadline - (current_time_point + p)
+            if delta > 0: score += delta * a
+            if delta < 0: score += -1 * delta * b
+            current_time_point += p
         return score
 
     def generate_timeline(self, values=None, group=True):
