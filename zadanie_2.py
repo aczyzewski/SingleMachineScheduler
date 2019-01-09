@@ -41,7 +41,6 @@ class BetterSolver(Solver):
          tasks = se + sl
          return self.convert_list_of_tasks_to_results(tasks, offset=offset)
 
-    @timer
     def solve(self, i_max=3600, t_0=50000, alpha=0.995, use_heuristic_as_first_solution=True):
         """ Simulated annealing 
         
@@ -157,7 +156,7 @@ class BetterSolver(Solver):
             super(BetterSolver, self).solve()
             S_E, S_L = self.results_se, self.results_sl
             offset_determined_by_heruistic_function = self.results[0][1]
-            print("HEURISTIC VAL:", self.calculate_cost(self.results))
+            #print("HEURISTIC VAL:", self.calculate_cost(self.results))
         else:
             S_E, S_L = generate_se_sl(tasks, task_info_dict, self.deadline)
 
@@ -221,14 +220,31 @@ class BetterSolver(Solver):
             time_cumsum += elapsed_time
             
         self.results = best_x
+        
+        for task_id in self.results:
+            task_info_dict
 
-        print(" --- AFTER: --- ")
-        print("COST:", self.calculate_cost_on_dict(*self.results, task_info_dict))
+        #print(" --- AFTER: --- ")
+        #print("COST:", self.calculate_cost_on_dict(*self.results, task_info_dict))
 
         #print("VALID:", self.is_valid(timeline))
         #print("NUMBER OF TASKS:", len(timeline))
     
-        print("ITERATIONS:", current_iteration)
+        #print("ITERATIONS:", current_iteration)
+
+        current_time_point = max(0, self.deadline - sum([task_info_dict[task][0] for task in best_x[0]]))
+        best_x[0].extend(best_x[1])
+        score = 0
+        for task_id in best_x[0]:
+            p, a, b, _, _ = task_info_dict[task_id]
+            delta = self.deadline - (current_time_point + p)
+            if delta > 0: score += delta * a
+            if delta < 0: score += -1 * delta * b
+
+            print(task_id, current_time_point)
+            current_time_point += p
+
+        print(score)
 
 if __name__ == '__main__':
 
@@ -237,18 +253,14 @@ if __name__ == '__main__':
     deadline = 0.4 if len(sys.argv) < 4 else float(sys.argv[3])
     instance = parse_input_file(input_file)[instance_k - 1]
 
-    # Determinujemy czy uzywac heurystyki czy nie
-    htic = False if len(sys.argv) < 5 else bool(int(sys.argv[4]))
-
     intput_file_name = ntpath.split(input_file)[1]
     n = int(intput_file_name.split('.')[0][3:])
-    print(intput_file_name, instance_k, deadline)
+    print(n, instance_k, deadline)
 
     solver = BetterSolver(instance, deadline) 
-    solver.solve(i_max=3600, t_0=50000 * 2 * n, alpha=0.995, use_heuristic_as_first_solution=htic)
+    solver.solve(i_max=3600, t_0=50000 * 2 * n, alpha=0.995, use_heuristic_as_first_solution=True)
 
     #cProfile.run('solver.solve(i_max=250, t_0=50000 * 2 * n, alpha=0.995, use_heuristic_as_first_solution=True)')
-
 
     """
     results = sorted(solver.results, key=lambda x: x[0])
@@ -256,8 +268,4 @@ if __name__ == '__main__':
         print(start_time, start_time + solver.instance.p[task_id])
     """
 
-    results = get_results_object()
-
-    print("FINAL COST:", solver.calculate_cost_on_dict(*solver.results, solver.instance.get_task_info_dict()))
-    print("REF:", results[n][instance_k][deadline])
 

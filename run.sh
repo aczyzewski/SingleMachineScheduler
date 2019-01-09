@@ -1,1 +1,1 @@
-python3 simplemachinescheduler.py $1 $2 $3
+python3 zadanie_2.py $1 $2 $3

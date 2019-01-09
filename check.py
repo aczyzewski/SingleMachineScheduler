@@ -132,7 +132,6 @@ if __name__ == '__main__':
 
     results = get_results_object()
 
-
     for n_idx, n in enumerate(N):
         for h_idx, h in enumerate(H):
 
