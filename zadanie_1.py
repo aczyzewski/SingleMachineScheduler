@@ -14,7 +14,7 @@ class Instance():
         return list(zip(list(range(len(self.p))), self.p, self.a, self.b))
 
     def get_task_info_dict(self):
-        output = [(tid, (p, a, b, p/a, p/b)) for tid, p, a, b in zip(list(range(len(self.p))), self.p, self.a, self.b)]
+        output = [(tid, (p, a, b, p/a, p/b)) for tid, p, a, b in self.zipped_tasks()]
         return dict(output)
 
     def add_job(self, p, a, b):

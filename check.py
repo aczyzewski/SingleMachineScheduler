@@ -61,6 +61,7 @@ class Check():
             current_interval = intervals.pop()
             for interval in intervals:
                 if overlapping(current_interval, interval) or interval[0] < 0 or interval[1] < 0 or interval[1] < interval[0]:
+                    print("Overlapping intervals!")
                     return False
 
         return True

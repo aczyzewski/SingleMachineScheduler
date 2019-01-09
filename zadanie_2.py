@@ -234,15 +234,21 @@ class BetterSolver(Solver):
 
         current_time_point = max(0, self.deadline - sum([task_info_dict[task][0] for task in best_x[0]]))
         best_x[0].extend(best_x[1])
+        output = {}
+
         score = 0
         for task_id in best_x[0]:
             p, a, b, _, _ = task_info_dict[task_id]
             delta = self.deadline - (current_time_point + p)
+
+            output[task_id] = [current_time_point, current_time_point + p]
+
             if delta > 0: score += delta * a
             if delta < 0: score += -1 * delta * b
-
-            print(task_id, current_time_point)
             current_time_point += p
+
+        for n in range(len(best_x[0])):
+            print(*output[n])
 
         print(score)
 
