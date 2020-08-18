@@ -6,8 +6,8 @@ import numpy as np
 import math
 
 from random import shuffle, randint, random
-from zadanie_1 import Solver, Instance
-from zadanie_1 import parse_input_file
+from single_run import Solver, Instance
+from single_run import parse_input_file
 
 def timer(func):
     def function(*args, **kwargs):
@@ -182,7 +182,6 @@ class BetterSolver(Solver):
 
         f_x = best_f_x
         while time_cumsum + running_mean_time <= (len(tasks) * 0.1 - 0.145):
-        #for _ in range(i_max):
 
             current_iteration += 1
             start = time()
@@ -221,14 +220,6 @@ class BetterSolver(Solver):
         for task_id in self.results:
             task_info_dict
 
-        #print(" --- AFTER: --- ")
-        #print("COST:", self.calculate_cost_on_dict(*self.results, task_info_dict))
-
-        #print("VALID:", self.is_valid(timeline))
-        #print("NUMBER OF TASKS:", len(timeline))
-    
-        #print("ITERATIONS:", current_iteration)
-
         current_time_point = max(0, self.deadline - sum([task_info_dict[task][0] for task in best_x[0]]))
         best_x[0].extend(best_x[1])
         output = {}
@@ -262,13 +253,5 @@ if __name__ == '__main__':
 
     solver = BetterSolver(instance, deadline) 
     solver.solve(i_max=3600, t_0=50000 * 2 * n, alpha=0.995, use_heuristic_as_first_solution=True)
-
-    #cProfile.run('solver.solve(i_max=250, t_0=50000 * 2 * n, alpha=0.995, use_heuristic_as_first_solution=True)')
-
-    """
-    results = sorted(solver.results, key=lambda x: x[0])
-    for task_id, start_time in results:
-        print(start_time, start_time + solver.instance.p[task_id])
-    """
 
 
